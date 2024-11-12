@@ -4,21 +4,21 @@
 module summ (
     input clk,
     input rst,
-
+    input start,
     input [15:0] a,
     input [15:0] b,
-
     output reg ready,
     output reg [15:0] y
 );
-
     always @(posedge clk) begin
         if (rst) begin
-            y <= 0;
+            y <= 16'd0;
             ready <= 1'b0;
         end else if (start) begin
             y <= a + b;
             ready <= 1'b1;
+        end else begin
+            ready <= 1'b0;
         end
     end
 endmodule
@@ -26,35 +26,70 @@ endmodule
 module mult(
     input clk,
     input rst,
-    
+    input start,
     input [15:0] a_in,
     input [15:0] b_in,
-    
     output reg [15:0] f_out,
-    output state
+    output reg ready
 );
     localparam IDLE = 1'b0;
     localparam WORK = 1'b1;
     
-    reg [15:0] a;
-    reg [15:0] b;
-    reg [15:0] f;
     reg state;
-
+    reg [15:0] sum;
+    reg [15:0] counter;
+    
+    reg summ_start;
+    wire summ_ready;
+    wire [15:0] summ_y;
+    reg [15:0] summ_a, summ_b;
+    
+    summ summ_inst (
+        .clk(clk),
+        .rst(rst),
+        .start(summ_start),
+        .a(summ_a),
+        .b(summ_b),
+        .ready(summ_ready),
+        .y(summ_y)
+    );
+    
     always @(posedge clk) begin
         if (rst) begin
-            y <= 0;
             state <= IDLE;
+            sum <= 16'd0;
+            counter <= 16'd0;
+            f_out <= 16'd0;
+            ready <= 1'b0;
+            summ_start <= 1'b0;
         end else begin
             case (state)
                 IDLE: begin
-                    y <= 0;
-                    state <= WORK;
-                    x <= x_in;
+                    if (start) begin
+                        sum <= 16'd0;
+                        counter <= 16'd0;
+                        summ_a <= 16'd0;
+                        summ_b <= a_in;
+                        summ_start <= 1'b1;
+                        state <= WORK;
+                        ready <= 1'b0;
+                    end
                 end
                 WORK: begin
-                    y <= x;
-                    state <= IDLE;
+                    summ_start <= 1'b0; // Deassert start after one cycle
+                    if (summ_ready) begin
+                        sum <= summ_y;
+                        counter <= counter + 1;
+                        if (counter + 1 < b_in) begin
+                            summ_a <= summ_y;
+                            summ_b <= a_in;
+                            summ_start <= 1'b1;
+                        end else begin
+                            f_out <= summ_y;
+                            ready <= 1'b1;
+                            state <= IDLE;
+                        end
+                    end
                 end
             endcase
         end
@@ -64,7 +99,7 @@ endmodule
 module clock_gen(
     output reg clk
 );
-    reg clk = 1'b0;
+    assign clk = 1'b0;
     always begin
         #1 clk = ~clk;
     end
