@@ -96,12 +96,22 @@ module mult(
     end
 endmodule
 
+module cubicroot(
+    input clk,
+    input rst,
+    input start,
+    input [15:0] a_in,
+    output reg [15:0] f_out,
+    output reg ready
+);
+endmodule
+
 module clock_gen(
     output reg clk
 );
-    assign clk = 1'b0;
-    always begin
-        #1 clk = ~clk;
+    initial begin
+        clk = 1'b0;
+        forever #1 clk = ~clk;
     end
 endmodule
 
