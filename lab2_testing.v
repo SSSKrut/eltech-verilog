@@ -26,7 +26,7 @@ module clk_test;
 endmodule
 
 module mult_test;
-    reg clk;
+    wire clk;
     reg rst;
     reg start;
     reg [15:0] a_in;
@@ -108,6 +108,45 @@ module mult_test;
         $display("0 * 0 = %d", f_out);
 
         $display("-=-=-=-=-=-=-=-=-=");
+    end
+endmodule
+
+module cubicroot_test;
+    wire clk;
+    reg rst;
+    reg start;
+    reg [15:0] x_in;
+    wire [15:0] y_out;
+    wire ready;
+
+    cubicroot cubicroot_inst (
+        .clk(clk),
+        .rst(rst),
+        .start(start),
+        .x_in(x_in),
+        .y_out(y_out),
+        .ready(ready)
+    );
+
+    clock_gen cg_inst (
+        .clk(clk)
+    );
+
+    initial begin
+        rst = 1;
+        start = 0;
+        x_in = 16'd0;
+
+        #40 rst = 0;
+        $display("Cubic square test:");
+
+        #2
+        x_in = 16'd27;
+        start = 1;
+        #2 start = 0;
+
+        wait (ready);
+        $display("cubicroot(27) = %d", y_out);
         $finish;
     end
 endmodule

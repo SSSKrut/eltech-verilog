@@ -23,6 +23,29 @@ module summ (
     end
 endmodule
 
+module subs (
+    input clk,
+    input rst,
+    input start,
+    input [15:0] a,
+    input [15:0] b,
+    output reg ready,
+    output reg [15:0] y
+);
+    always @(posedge clk) begin
+        if (rst) begin
+            y <= 16'd0;
+            ready <= 1'b0;
+        end else if (start) begin
+            y <= a - b;
+            ready <= 1'b1;
+        end else begin
+            ready <= 1'b0;
+        end
+    end
+endmodule
+
+
 module mult(
     input clk,
     input rst,
@@ -100,10 +123,223 @@ module cubicroot(
     input clk,
     input rst,
     input start,
-    input [15:0] a_in,
-    output reg [15:0] f_out,
+    input [15:0] x_in,
+    output reg [15:0] y_out,
     output reg ready
 );
+    // State encoding
+    localparam IDLE          = 4'd0;
+    localparam INIT          = 4'd1;
+    localparam SHIFT_Y       = 4'd2;
+    localparam COMPUTE_B1    = 4'd3;
+    localparam COMPUTE_B2    = 4'd4;
+    localparam COMPUTE_B3    = 4'd5;
+    localparam COMPUTE_B4    = 4'd6;
+    localparam SHIFT_B       = 4'd7;
+    localparam COMPARE       = 4'd8;
+    localparam UPDATE_X_Y    = 4'd9;
+    localparam DECREMENT_S   = 4'd10;
+    localparam DONE          = 4'd11;
+
+    reg [3:0] state;
+    reg [15:0] x;
+    reg [15:0] y;
+    reg [15:0] b;
+    reg [5:0] s;
+    reg [15:0] temp1, temp2, temp3;
+
+    // Control signals for modules
+    reg summ_start;
+    wire summ_ready;
+    wire [15:0] summ_y;
+    reg [15:0] summ_a, summ_b;
+
+    reg diff_start;
+    wire diff_ready;
+    wire [15:0] diff_y;
+    reg [15:0] diff_a, diff_b;
+
+    reg mult1_start, mult2_start;
+    wire mult1_ready, mult2_ready;
+    wire [15:0] mult1_f_out, mult2_f_out;
+    reg [15:0] mult1_a_in, mult1_b_in;
+    reg [15:0] mult2_a_in, mult2_b_in;
+
+    summ summ_inst (
+        .clk(clk),
+        .rst(rst),
+        .start(summ_start),
+        .a(summ_a),
+        .b(summ_b),
+        .ready(summ_ready),
+        .y(summ_y)
+    );
+
+    subs diff_inst (
+        .clk(clk),
+        .rst(rst),
+        .start(diff_start),
+        .a(diff_a),
+        .b(diff_b),
+        .ready(diff_ready),
+        .y(diff_y)
+    );
+
+    mult mult1_inst (
+        .clk(clk),
+        .rst(rst),
+        .a_in(mult1_a_in),
+        .b_in(mult1_b_in),
+        .f_out(mult1_f_out),
+        .ready(mult1_ready)
+    );
+
+    mult mult2_inst (
+        .clk(clk),
+        .rst(rst),
+        .a_in(mult2_a_in),
+        .b_in(mult2_b_in),
+        .f_out(mult2_f_out),
+        .ready(mult2_ready)
+    );
+
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            state <= IDLE;
+            x <= 16'd0;
+            y <= 16'd0;
+            s <= 6'd0;
+            ready <= 1'b0;
+            y_out <= 16'd0;
+            summ_start <= 1'b0;
+            diff_start <= 1'b0;
+            mult1_start <= 1'b0;
+            mult2_start <= 1'b0;
+            $display("Rst");
+        end else begin
+            case (state)
+                IDLE: begin
+                    ready <= 1'b0;
+                    $display("Idle");
+                    if (start) begin
+                        x <= x_in;
+                        y <= 16'd0;
+                        s <= 6'd30;
+                        state <= SHIFT_Y;
+                    end
+                end
+                SHIFT_Y: begin
+                    $display("SHIFT_Y");
+                    // y = 2 * y
+                    mult1_a_in <= y;
+                    mult1_b_in <= 16'd2;
+                    mult1_start <= 1'b1;
+                    state <= COMPUTE_B1;
+                    #2
+                end
+                COMPUTE_B1: begin
+                    $display("COMPUTE_B1");
+                    mult1_start <= 1'b0;
+                    if (mult1_ready) begin
+                        y <= mult1_f_out;
+                        // temp1 = y + 1
+                        summ_a <= y;
+                        summ_b <= 16'd1;
+                        summ_start <= 1'b1;
+                        state <= COMPUTE_B2;
+                    end
+                end
+                COMPUTE_B2: begin
+                    $display("COMPUTE_B2");
+                    summ_start <= 1'b0;
+                    if (summ_ready) begin
+                        temp1 <= summ_y;
+                        // temp2 = y * (y + 1)
+                        mult1_a_in <= y;
+                        mult1_b_in <= temp1;
+                        mult1_start <= 1'b1;
+                        state <= COMPUTE_B3;
+                    end
+                end
+                COMPUTE_B3: begin
+                    $display("COMPUTE_B3");
+                    mult1_start <= 1'b0;
+                    if (mult1_ready) begin
+                        temp2 <= mult1_f_out;
+                        // temp3 = 3 * temp2
+                        mult1_a_in <= 16'd3;
+                        mult1_b_in <= temp2;
+                        mult1_start <= 1'b1;
+                        state <= COMPUTE_B4;
+                    end
+                end
+                COMPUTE_B4: begin
+                    $display("COMPUTE_B4");
+                    mult1_start <= 1'b0;
+                    if (mult1_ready) begin
+                        temp3 <= mult1_f_out;
+                        // b = temp3 + 1
+                        summ_a <= temp3;
+                        summ_b <= 16'd1;
+                        summ_start <= 1'b1;
+                        state <= SHIFT_B;
+                    end
+                end
+                SHIFT_B: begin
+                    $display("SHIFT_B");
+                    summ_start <= 1'b0;
+                    if (summ_ready) begin
+                        b <= summ_y << s;
+                        state <= COMPARE;
+                    end
+                end
+                COMPARE: begin
+                    $display("COMPARE");
+                    if (x >= b) begin
+                        // x = x - b
+                        diff_a <= x;
+                        diff_b <= b;
+                        diff_start <= 1'b1;
+                        state <= UPDATE_X_Y;
+                    end else begin
+                        state <= DECREMENT_S;
+                    end
+                end
+                UPDATE_X_Y: begin
+                    $display("UPDATE_X_Y");
+                    diff_start <= 1'b0;
+                    if (diff_ready) begin
+                        x <= diff_y;
+                        // y = y + 1
+                        summ_a <= y;
+                        summ_b <= 16'd1;
+                        summ_start <= 1'b1;
+                        state <= DECREMENT_S;
+                    end
+                end
+                DECREMENT_S: begin
+                    $display("DECREMENT_S");
+                    summ_start <= 1'b0;
+                    if (summ_ready) begin
+                        y <= summ_y;
+                        if (s >= 6'd3) begin
+                            s <= s - 6'd3;
+                            state <= SHIFT_Y;
+                        end else begin
+                            state <= DONE;
+                        end
+                    end
+                end
+                DONE: begin
+                    $display("DONE");
+                    y_out <= y;
+                    ready <= 1'b1;
+                    state <= IDLE;
+                end
+                default: state <= IDLE;
+            endcase
+        end
+    end
 endmodule
 
 module clock_gen(
