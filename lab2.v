@@ -189,6 +189,7 @@ module cubicroot(
     mult mult1_inst (
         .clk(clk),
         .rst(rst),
+        .start(mult1_start),
         .a_in(mult1_a_in),
         .b_in(mult1_b_in),
         .f_out(mult1_f_out),
@@ -198,6 +199,7 @@ module cubicroot(
     mult mult2_inst (
         .clk(clk),
         .rst(rst),
+        .start(mult2_start),
         .a_in(mult2_a_in),
         .b_in(mult2_b_in),
         .f_out(mult2_f_out),
