@@ -77,7 +77,7 @@ module mult(
         .y(summ_y)
     );
     
-    always @(posedge clk) begin
+    always @(posedge clk or posedge rst) begin
         if (rst) begin
             state <= IDLE;
             sum <= 16'd0;
@@ -103,6 +103,7 @@ module mult(
                     if (summ_ready) begin
                         sum <= summ_y;
                         counter <= counter + 1;
+                        $display("sum = %d, counter = %d", sum, counter);
                         if (counter + 1 < b_in) begin
                             summ_a <= summ_y;
                             summ_b <= a_in;
@@ -215,12 +216,10 @@ module cubicroot(
             diff_start <= 1'b0;
             mult1_start <= 1'b0;
             mult2_start <= 1'b0;
-            $display("Rst");
         end else begin
             case (state)
                 IDLE: begin
                     ready <= 1'b0;
-                    $display("Idle");
                     if (start) begin
                         x <= x_in;
                         y <= 16'd0;
@@ -229,16 +228,13 @@ module cubicroot(
                     end
                 end
                 SHIFT_Y: begin
-                    $display("SHIFT_Y");
                     // y = 2 * y
                     mult1_a_in <= y;
                     mult1_b_in <= 16'd2;
                     mult1_start <= 1'b1;
                     state <= COMPUTE_B1;
-                    #2
                 end
                 COMPUTE_B1: begin
-                    $display("COMPUTE_B1");
                     mult1_start <= 1'b0;
                     if (mult1_ready) begin
                         y <= mult1_f_out;
@@ -250,7 +246,6 @@ module cubicroot(
                     end
                 end
                 COMPUTE_B2: begin
-                    $display("COMPUTE_B2");
                     summ_start <= 1'b0;
                     if (summ_ready) begin
                         temp1 <= summ_y;
@@ -262,7 +257,6 @@ module cubicroot(
                     end
                 end
                 COMPUTE_B3: begin
-                    $display("COMPUTE_B3");
                     mult1_start <= 1'b0;
                     if (mult1_ready) begin
                         temp2 <= mult1_f_out;
@@ -274,7 +268,6 @@ module cubicroot(
                     end
                 end
                 COMPUTE_B4: begin
-                    $display("COMPUTE_B4");
                     mult1_start <= 1'b0;
                     if (mult1_ready) begin
                         temp3 <= mult1_f_out;
@@ -286,7 +279,6 @@ module cubicroot(
                     end
                 end
                 SHIFT_B: begin
-                    $display("SHIFT_B");
                     summ_start <= 1'b0;
                     if (summ_ready) begin
                         b <= summ_y << s;
@@ -294,7 +286,6 @@ module cubicroot(
                     end
                 end
                 COMPARE: begin
-                    $display("COMPARE");
                     if (x >= b) begin
                         // x = x - b
                         diff_a <= x;
@@ -306,7 +297,6 @@ module cubicroot(
                     end
                 end
                 UPDATE_X_Y: begin
-                    $display("UPDATE_X_Y");
                     diff_start <= 1'b0;
                     if (diff_ready) begin
                         x <= diff_y;
@@ -318,7 +308,6 @@ module cubicroot(
                     end
                 end
                 DECREMENT_S: begin
-                    $display("DECREMENT_S");
                     summ_start <= 1'b0;
                     if (summ_ready) begin
                         y <= summ_y;
@@ -331,7 +320,6 @@ module cubicroot(
                     end
                 end
                 DONE: begin
-                    $display("DONE");
                     y_out <= y;
                     ready <= 1'b1;
                     state <= IDLE;
@@ -351,26 +339,121 @@ module clock_gen(
     end
 endmodule
 
-module finalblock(
-    input wire clk,
-    input wire rst,
-
-    input wire [7:0] a,
-    input wire [7:0] b,
-    output wire [7:0] y
+module compute_y (
+    input clk,
+    input rst,
+    input start,
+    input [15:0] a,
+    input [15:0] b,
+    output reg [15:0] y,
+    output reg ready
 );
+    reg [15:0] a_squared;
+    reg [15:0] b_cuberoot;
+    reg [2:0] state;
 
-    wire [7:0] x2;
-    wire [7:0] b13;
-    wire [7:0] y1;
-    wire [7:0] y2;
+    reg mult_start;
+    wire mult_ready;
+    wire [15:0] mult_result;
 
-    assign x2 = x * x;
-    assign b13 = b * b * b;
-    assign y1 = x2 + b13;
-    assign y2 = y1 + 1;
+    reg cubicroot_start;
+    wire cubicroot_ready;
+    wire [15:0] cubicroot_result;
 
-    assign y = y2;
+    reg summ_start;
+    wire summ_ready;
+    wire [15:0] summ_result;
 
+    mult mult_inst (
+        .clk(clk),
+        .rst(rst),
+        .start(mult_start),
+        .a_in(a),
+        .b_in(a),
+        .f_out(mult_result),
+        .ready(mult_ready)
+    );
+
+    cubicroot cubicroot_inst (
+        .clk(clk),
+        .rst(rst),
+        .start(cubicroot_start),
+        .x_in(b),
+        .y_out(cubicroot_result),
+        .ready(cubicroot_ready)
+    );
+
+    summ summ_inst (
+        .clk(clk),
+        .rst(rst),
+        .start(summ_start),
+        .a(a_squared),
+        .b(b_cuberoot),
+        .ready(summ_ready),
+        .y(summ_result)
+    );
+
+    // State machine states
+    localparam IDLE          = 3'd0;
+    localparam CALC_SQUARE   = 3'd1;
+    localparam CALC_CUBEROOT = 3'd2;
+    localparam CALC_SUM      = 3'd3;
+    localparam DONE          = 3'd4;
+
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            state <= IDLE;
+            ready <= 1'b0;
+            mult_start <= 1'b0;
+            cubicroot_start <= 1'b0;
+            summ_start <= 1'b0;
+            y <= 16'd0;
+            a_squared <= 16'd0;
+            b_cuberoot <= 16'd0;
+        end else begin
+            case (state)
+                IDLE: begin
+                    ready <= 1'b0;
+                    if (start) begin
+                        // Start calculating a^2
+                        mult_start <= 1'b1;
+                        state <= CALC_SQUARE;
+                    end
+                end
+                CALC_SQUARE: begin
+                    mult_start <= 1'b0; // Deassert start after one cycle
+                    if (mult_ready) begin
+                        a_squared <= mult_result;
+                        // Start calculating b^(1/3)
+                        cubicroot_start <= 1'b1;
+                        state <= CALC_CUBEROOT;
+                    end
+                end
+                CALC_CUBEROOT: begin
+                    cubicroot_start <= 1'b0; // Deassert start
+                    if (cubicroot_ready) begin
+                        b_cuberoot <= cubicroot_result;
+                        // Start summing a_squared + b_cuberoot
+                        summ_start <= 1'b1;
+                        state <= CALC_SUM;
+                    end
+                end
+                CALC_SUM: begin
+                    summ_start <= 1'b0; // Deassert start
+                    if (summ_ready) begin
+                        y <= summ_result;
+                        ready <= 1'b1;
+                        state <= DONE;
+                    end
+                end
+                DONE: begin
+                    if (!start) begin
+                        state <= IDLE;
+                    end
+                end
+                default: state <= IDLE;
+            endcase
+        end
+    end
 endmodule
 
