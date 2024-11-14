@@ -107,6 +107,16 @@ module mult_test;
         wait (ready);
         $display("0 * 0 = %d", f_out);
 
+        // Test case 6:
+        #1
+        a_in = 16'd2;
+        b_in = 16'd9;
+        start = 1;
+        #2 start = 0;
+
+        wait (ready);
+        $display("2 * 9 = %d", f_out);
+
         $display("-=-=-=-=-=-=-=-=-=");
     end
 endmodule

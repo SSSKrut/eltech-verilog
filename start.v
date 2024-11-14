@@ -17,6 +17,7 @@ module summ (
         end else if (start) begin
             y <= a + b;
             ready <= 1'b1;
+            // $display("In summator: ",a + b);
         end else begin
             ready <= 1'b0;
         end
@@ -212,7 +213,7 @@ module cubicroot(
             x <= 16'd0;
             y <= 16'd0;
             s <= 6'd0;
-            b <= 16'd0;
+            b <= 16'b0;
             ready <= 1'b0;
             y_out <= 16'd0;
             summ_start <= 1'b0;
@@ -240,6 +241,7 @@ module cubicroot(
                 COMPUTE_B1: begin
                     mult1_start <= 1'b0;
                     if (mult1_ready) begin
+                        
                         y <= mult1_f_out;
                         // temp1 = y + 1
                         summ_a <= y;
@@ -251,6 +253,7 @@ module cubicroot(
                 COMPUTE_B2: begin
                     summ_start <= 1'b0;
                     if (summ_ready) begin
+                        $display("y ", y);
                         temp1 <= summ_y;
                         // temp2 = y * (y + 1)
                         mult1_a_in <= y;
@@ -266,6 +269,7 @@ module cubicroot(
                         // temp3 = 3 * temp2
                         mult1_a_in <= 16'd3;
                         mult1_b_in <= temp2;
+
                         mult1_start <= 1'b1;
                         state <= COMPUTE_B4;
                     end
@@ -275,6 +279,8 @@ module cubicroot(
                     if (mult1_ready) begin
                         temp3 <= mult1_f_out;
                         // b = temp3 + 1
+                        
+
                         summ_a <= temp3;
                         summ_b <= 16'd1;
                         summ_start <= 1'b1;
@@ -284,7 +290,9 @@ module cubicroot(
                 SHIFT_B: begin
                     summ_start <= 1'b0;
                     if (summ_ready) begin
+                    $display(summ_y);
                         b <= summ_y << s;
+                        
                         state <= COMPARE;
                     end
                 end
@@ -318,6 +326,7 @@ module cubicroot(
                     end
                 end
                 DECREMENT_S: begin
+                
                     if (s >= 6'd3) begin
                         s <= s - 6'd3;
                         state <= SHIFT_Y;
@@ -462,4 +471,42 @@ module compute_y (
         end
     end
 endmodule
+module cubicroot_test;
+    wire clk;
+    reg rst;
+    reg start;
+    reg [15:0] x_in;
+    wire [15:0] y_out;
+    wire ready;
 
+    cubicroot cubicroot_inst (
+        .clk(clk),
+        .rst(rst),
+        .start(start),
+        .x_in(x_in),
+        .y_out(y_out),
+        .ready(ready)
+    );
+
+    clock_gen cg_inst (
+        .clk(clk)
+    );
+
+    initial begin
+        rst = 1;
+        start = 0;
+        x_in = 16'd0;
+
+        #40 rst = 0;
+        $display("Cubic square test:");
+
+        #1
+        x_in = 16'd9;
+        start = 1;
+        #2 start = 0;
+
+        wait (ready);
+        $display("cubicroot(27) = %d", y_out);
+        $finish;
+    end
+endmodule
