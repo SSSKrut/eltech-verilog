@@ -21,6 +21,7 @@ def cube_hw(x):
         print(" temp3:", temp3, end=" ")
         b = temp3 + 1
         print(" b:", b, end=" ")
+        b = (2*y + 1) * (2 * y) * 3 + 1
         b = b << s
         print(" b<<:", b, end=" ")
         if (x >= b):
@@ -33,7 +34,7 @@ def cube_hw(x):
 
 # Test
 for x in range(0, 5, 1):
-    x = 3
+    x = 6
     a = pow(x, 3)
     alg_val = cube_alg(a)
     hw_val = cube_hw(a)
