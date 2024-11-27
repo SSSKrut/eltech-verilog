@@ -185,7 +185,7 @@ module cubicroot(
                     if (x >= b) begin
                         $write(" x>=b");
                         x <= x - b;
-                        y = y + 1;
+                        y <= y + 1;
                         state <= DECREMENT_S;
                     end else begin
                         state <= DECREMENT_S;
@@ -251,11 +251,11 @@ module cubicroot_test;
         $display("Cubic root test:");
         
         for (i = 0; i <= 6; i = i + 1) begin
-            cube = i * i * i;
+            cube <= i * i * i;
             
-            x_in = cube;
-            start = 1;
-            wait(~ready) start = 0;
+            x_in <= cube;
+            start <= 1;
+            wait(~ready) start <= 0;
 
             wait (ready);
             $display("cubicroot(%b) = %d (expected %d)", cube, y_out, i);
@@ -263,11 +263,11 @@ module cubicroot_test;
         end
         #1000;
         for (i = 0; i <= 6; i = i + 1) begin
-            cube = i * i * i;
+            cube <= i * i * i;
             
-            x_in = cube;
-            start = 1;
-            wait(~ready) start = 0;
+            x_in <= cube;
+            start <= 1;
+            wait(~ready) start <= 0;
 
             wait (ready);
             $display("cubicroot(%b) = %d (expected %d)", cube, y_out, i);
