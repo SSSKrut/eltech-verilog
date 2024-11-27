@@ -45,7 +45,7 @@ module mult(
                     if (counter < b_in) begin
                         sum <= sum + a_in;
                     end else begin
-                        f_out <= sum;
+                        f_out = sum;
                         busy_o <= 1'b0;
                         state <= IDLE;
                     end
@@ -64,19 +64,22 @@ module cubicroot(
     output reg busy_o
 );
     // State encoding
-    localparam IDLE          = 3'h0;
-    localparam SHIFT_Y       = 3'h1;
-    localparam COMPUTE_B1_MULT_OFF = 3'h2;
-    localparam COMPUTE_B2    = 3'h3;
-    localparam COMPUTE_B2_MULT_OFF    = 3'h4;
-    localparam COMPUTE_B3    = 3'h5;
-    localparam COMPARE      = 3'h6;
-    localparam DECREMENT_S        = 3'h7;
+    localparam IDLE          = 4'd0;
+    localparam SHIFT_Y       = 4'd1;
+    localparam COMPUTE_B1_MULT_OFF = 4'd2;
+    localparam COMPUTE_B2    = 4'd3;
+    localparam COMPUTE_B2_MULT_OFF    = 4'd4;
+    localparam COMPUTE_B3    = 4'd5;
+    localparam COMPARE      = 4'd6;
+    localparam DECREMENT_S        = 4'd7;
+    localparam COMPUTE_B1_MULT_OFF_WAIT = 4'd8;
+    localparam COMPUTE_B2_MULT_OFF_WAIT = 4'd9;
+    localparam SHIFT_Y_END = 4'd10;
 
     reg [7:0] x;
     reg [7:0] y;
     reg [15:0] b;
-    reg [3:0] s;
+    reg [4:0] s;
     reg [3:0] state;
     reg [15:0] mult_reg;
 
@@ -130,11 +133,10 @@ module cubicroot(
                     $display("-=-=-=-=-=-=-=-=-");
                     $write(" s:", s);
                     $write(" y:%d", y);
-                    y = (y << 1);
-
-                    mult1_a_in <= 0;
-                        mult1_b_in <= 0;
-                        mult1_start <= 0;
+                    y <= y << 1;
+                    state <= SHIFT_Y_END;
+                end
+                SHIFT_Y_END: begin
                     
                     mult1_a_in <= y + 1;
                     mult1_b_in <= y;
@@ -143,8 +145,12 @@ module cubicroot(
                 end
                 COMPUTE_B1_MULT_OFF: begin
                     mult1_start <= 0;
-                    mult_reg <= mult1_f_out;
+                    mult_reg <= 0;
+                    state <= COMPUTE_B1_MULT_OFF_WAIT;
+                end
+                COMPUTE_B1_MULT_OFF_WAIT: begin
                     if (!mult1_busy) begin
+                        mult_reg <= mult1_f_out;
                         state <= COMPUTE_B2;
                     end
                 end
@@ -155,14 +161,17 @@ module cubicroot(
                         mult1_start <= 0;
                     mult1_a_in <= 3;
                     mult1_b_in <= mult_reg;
-                    mult_reg <= 0;
                     mult1_start <= 1;
                     state <= COMPUTE_B2_MULT_OFF;
                 end
                 COMPUTE_B2_MULT_OFF: begin
                     mult1_start <= 0;
-                    mult_reg <= mult1_f_out;
+                    mult_reg <= 0;
+                    state <= COMPUTE_B2_MULT_OFF_WAIT;
+                end
+                COMPUTE_B2_MULT_OFF_WAIT: begin
                     if (!mult1_busy) begin
+                        mult_reg <= mult1_f_out;
                         state <= COMPUTE_B3;
                     end
                 end
