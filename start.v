@@ -41,11 +41,11 @@ module mult(
                     end
                 end
                 WORK: begin
-                    counter = counter + 1;
+                    counter <= counter + 1;
                     if (counter < b_in) begin
                         sum <= sum + a_in;
                     end else begin
-                        f_out = sum;
+                        f_out <= sum;
                         busy_o <= 1'b0;
                         state <= IDLE;
                     end
@@ -78,7 +78,7 @@ module cubicroot(
 
     reg [7:0] x;
     reg [7:0] y;
-    reg [15:0] b;
+    reg [8:0] b;
     reg [4:0] s;
     reg [3:0] state;
     reg [15:0] mult_reg;
@@ -211,8 +211,8 @@ module clock_gen(
     output reg clk
 );
     initial begin
-        clk = 1'b1;
-        forever #1 clk = ~clk;
+        clk <= 1'b1;
+        forever #1 clk <= ~clk;
     end
 endmodule
 
@@ -243,11 +243,11 @@ module cubicroot_test;
     reg [7:0] cube;
 
     initial begin
-        rst = 1;
-        start = 0;
-        x_in = 8'd0;
+        rst <= 1;
+        start <= 0;
+        x_in <= 8'd0;
 
-        #40 rst = 0;
+        #40 rst <= 0;
         $display("Cubic root test:");
         
         for (i = 0; i <= 6; i = i + 1) begin
@@ -255,19 +255,7 @@ module cubicroot_test;
             
             x_in <= cube;
             start <= 1;
-            wait(~ready) start <= 0;
-
-            wait (ready);
-            $display("cubicroot(%b) = %d (expected %d)", cube, y_out, i);
-            #100;
-        end
-        #1000;
-        for (i = 0; i <= 6; i = i + 1) begin
-            cube <= i * i * i;
-            
-            x_in <= cube;
-            start <= 1;
-            wait(~ready) start <= 0;
+            #2; start <= 0;
 
             wait (ready);
             $display("cubicroot(%b) = %d (expected %d)", cube, y_out, i);
