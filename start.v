@@ -1,6 +1,6 @@
 // Variant 1 : y = a ^ 2 + b ^ (1/3)
 // Restrictions: 1 summation, 2 multiplications
-
+`timescale 1ns/1ps
 module mult(
     input clk,
     input rst,
@@ -243,6 +243,8 @@ module cubicroot_test;
     reg [7:0] cube;
 
     initial begin
+        $dumpfile("test.vcd");
+        $dumpvars(0, cubicroot_test);
         rst <= 1;
         start <= 0;
         x_in <= 8'd0;
