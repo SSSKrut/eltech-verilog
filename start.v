@@ -197,8 +197,8 @@ module cubicroot(
                         state <= SHIFT_Y;
                     end else begin
                         y_out <= y;
-                        busy_o <= 0;
                         state <= IDLE;
+                        busy_o <= 0;
                     end
                 end
                 default: state <= IDLE;
@@ -252,8 +252,21 @@ module cubicroot_test;
         #40 rst <= 0;
         $display("Cubic root test:");
         
+        for (i = 0; i <= 10; i = i + 1) begin
+            cube = i * i * i;
+            // #10;
+            
+            x_in <= cube;
+            start <= 1;
+            #2; start <= 0;
+
+            wait (ready);
+            $display("cubicroot(%b) = %d (expected %d)", cube, y_out, i);
+            #100;
+        end
         for (i = 0; i <= 6; i = i + 1) begin
-            cube <= i * i * i;
+            cube = i * i * i;
+            // #10;
             
             x_in <= cube;
             start <= 1;
