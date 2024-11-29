@@ -7,7 +7,7 @@ module mult(
     input start,
     input [7:0] a_in,
     input [7:0] b_in,
-    output reg [15:0] f_out,
+    output reg [7:0] f_out,
     output reg busy_o
 );
     localparam IDLE = 1'b0;
@@ -81,11 +81,11 @@ module cubicroot(
     reg [8:0] b;
     reg [4:0] s;
     reg [3:0] state;
-    reg [15:0] mult_reg;
+    reg [7:0] mult_reg;
 
     reg mult1_start;
     wire mult1_busy;
-    wire [15:0] mult1_f_out;
+    wire [7:0] mult1_f_out;
     reg [7:0] mult1_a_in, mult1_b_in;
     
 
@@ -200,6 +200,105 @@ module cubicroot(
     end
 endmodule
 
+module compute_y (
+    input clk,
+    input rst,
+    input start,
+    input [7:0] a,
+    input [7:0] b,
+    output reg [7:0] y,
+    output reg ready
+);
+    reg [7:0] a_squared;
+    reg [7:0] b_cuberoot;
+    reg [2:0] state;
+
+    reg mult_start;
+    wire mult_ready;
+    wire [7:0] mult_result;
+
+    reg cubicroot_start;
+    wire cubicroot_ready;
+    wire [7:0] cubicroot_result;
+
+    mult mult_inst (
+        .clk(clk),
+        .rst(rst),
+        .start(mult_start),
+        .a_in(a),
+        .b_in(a),
+        .f_out(mult_result),
+        .busy_o(mult_ready)
+    );
+
+    cubicroot cubicroot_inst (
+        .clk(clk),
+        .rst(rst),
+        .start(cubicroot_start),
+        .x_in(b),
+        .y_out(cubicroot_result),
+        .busy_o(cubicroot_ready)
+    );
+
+
+    // State machine states
+    localparam IDLE          = 3'd0;
+    localparam CALC_SQUARE   = 3'd1;
+    localparam CALC_CUBEROOT = 3'd2;
+    localparam CALC_SUM      = 3'd3;
+    localparam DONE          = 3'd4;
+
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            state <= IDLE;
+            ready <= 1'b0;
+            mult_start <= 1'b0;
+            cubicroot_start <= 1'b0;
+            y <= 8'd0;
+            a_squared <= 8'd0;
+            b_cuberoot <= 8'd0;
+        end else begin
+            case (state)
+                IDLE: begin
+                    ready <= 1'b0;
+                    if (start) begin
+                        // Start calculating a^2
+                        mult_start <= 1'b1;
+                        state <= CALC_SQUARE;
+                    end
+                end
+                CALC_SQUARE: begin
+                    mult_start <= 1'b0; // Deassert start after one cycle
+                    if (!mult_ready) begin
+                        a_squared <= mult_result;
+                        // Start calculating b^(1/3)
+                        cubicroot_start <= 1'b1;
+                        state <= CALC_CUBEROOT;
+                    end
+                end
+                CALC_CUBEROOT: begin
+                    cubicroot_start <= 1'b0; // Deassert start
+                    if (!cubicroot_ready) begin
+                        b_cuberoot <= cubicroot_result;
+                        state <= CALC_SUM;
+                    end
+                end
+                CALC_SUM: begin
+                        y <= b_cuberoot + a_squared;
+                        ready <= 1'b1;
+                        state <= DONE;
+                end
+                DONE: begin
+                    if (!start) begin
+                        state <= IDLE;
+                    end
+                end
+                default: state <= IDLE;
+            endcase
+        end
+    end
+endmodule
+
 module clock_gen(
     output reg clk
 );
@@ -214,7 +313,7 @@ module mult_test;
     reg start;
     reg [7:0] a_in;
     reg [7:0] b_in;
-    wire [15:0] f_out;
+    wire [7:0] f_out;
     wire busy_o;
     
     mult mult_inst (
@@ -321,7 +420,71 @@ module cubicroot_test;
         end
 
         $display("-=-=-=-=-=-=-=-=-=");
-        $finish;
     end
 endmodule
 
+module compute_y_test;
+    wire clk;
+    reg rst;
+    reg start;
+    reg [7:0] a;
+    reg [7:0] b;
+    wire [7:0] y;
+    wire ready;
+
+    compute_y uut (
+        .clk(clk),
+        .rst(rst),
+        .start(start),
+        .a(a),
+        .b(b),
+        .y(y),
+        .ready(ready)
+    );
+
+    clock_gen cg_inst (
+        .clk(clk)
+    );
+
+    integer i, j;
+    integer real_y;
+
+    initial begin
+        $dumpfile("test.vcd");
+        $dumpvars(0, compute_y_test);
+        #100000;
+        rst <= 1;
+        start <= 0;
+        a <= 8'd0;
+        b <= 8'd0;
+        #20 rst <= 0;
+        $display("Function test:");
+
+        for (i = 0; i <= 12; i = i + 1) begin
+            for (j = 0; j <= 12; j = j + 1) begin
+                real_y = i * i + j ** 0.33;
+                #10;
+                a <= i;
+                #10;
+                b <= j;
+                #10;
+                start <= 1;
+                #10 start = 0;
+                #100;
+
+                wait (!ready);
+                if (i==0 && j==0) begin
+                    wait (!ready);
+                end
+                #10;
+                $display("y = %d (Expected: %d^2 + %d^(1/3) = %d + %d = %d)", y, a, b, i * i, j ** 0.33, real_y);
+                #10;
+            end
+            
+        end
+        
+
+        $finish;
+    end
+    
+endmodule
