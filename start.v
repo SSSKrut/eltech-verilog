@@ -129,10 +129,6 @@ module cubicroot(
                     end
                 end
                 SHIFT_Y: begin
-                    $display();
-                    $display("-=-=-=-=-=-=-=-=-");
-                    $write(" s:", s);
-                    $write(" y:%d", y);
                     y <= y << 1;
                     state <= SHIFT_Y_END;
                 end
@@ -155,7 +151,6 @@ module cubicroot(
                     end
                 end
                 COMPUTE_B2: begin
-                    $write(" mult_reg:", mult_reg);
                     mult1_a_in <= 0;
                         mult1_b_in <= 0;
                         mult1_start <= 0;
@@ -181,9 +176,7 @@ module cubicroot(
                     state <= COMPARE;
                 end
                 COMPARE: begin
-                    $write(" b<<%b:", b);
                     if (x >= b) begin
-                        $write(" x>=b");
                         x <= x - b;
                         y <= y + 1;
                         state <= DECREMENT_S;
@@ -215,6 +208,57 @@ module clock_gen(
         forever #1 clk <= ~clk;
     end
 endmodule
+module mult_test;
+    wire clk;
+    reg rst;
+    reg start;
+    reg [7:0] a_in;
+    reg [7:0] b_in;
+    wire [15:0] f_out;
+    wire busy_o;
+    
+    mult mult_inst (
+        .clk(clk),
+        .rst(rst),
+        .start(start),
+        .a_in(a_in),
+        .b_in(b_in),
+        .f_out(f_out),
+        .busy_o(busy_o)
+    );
+
+    clock_gen cg_inst (
+        .clk(clk)
+    );
+
+    integer i, j;
+
+    initial begin
+        rst = 1;
+        start = 0;
+        a_in = 8'd0;
+        b_in = 8'd0;
+
+        #20 rst = 0;
+        $display("Multiplier test:");
+
+        for (i = 0; i <= 12; i = i + 1) begin
+            for (j = 0; j <= 12; j = j + 1) begin
+                #10;
+                a_in = i;
+                b_in = j;
+                start = 1;
+                #2 start = 0;
+
+                wait (!busy_o);
+                $display("%d * %d = %d", i, j, f_out);
+            end
+        end
+
+        $display("-=-=-=-=-=-=-=-=-=");
+
+    end
+endmodule
 
 module cubicroot_test;
     wire clk;
@@ -243,8 +287,7 @@ module cubicroot_test;
     reg [7:0] cube;
 
     initial begin
-        $dumpfile("test.vcd");
-        $dumpvars(0, cubicroot_test);
+        #10000;
         rst <= 1;
         start <= 0;
         x_in <= 8'd0;
@@ -261,7 +304,7 @@ module cubicroot_test;
             #2; start <= 0;
 
             wait (ready);
-            $display("cubicroot(%b) = %d (expected %d)", cube, y_out, i);
+            $display("cubicroot(%d) = %d (expected %d)", cube, y_out, i);
             #100;
         end
         for (i = 0; i <= 6; i = i + 1) begin
@@ -273,61 +316,12 @@ module cubicroot_test;
             #2; start <= 0;
 
             wait (ready);
-            $display("cubicroot(%b) = %d (expected %d)", cube, y_out, i);
+            $display("cubicroot(%d) = %d (expected %d)", cube, y_out, i);
             #100;
         end
+
+        $display("-=-=-=-=-=-=-=-=-=");
         $finish;
     end
 endmodule
 
-// module mult_test;
-//     wire clk;
-//     reg rst;
-//     reg start;
-//     reg [7:0] a_in;
-//     reg [7:0] b_in;
-//     wire [15:0] f_out;
-//     wire busy_o;
-
-//     mult mult_inst (
-//         .clk(clk),
-//         .rst(rst),
-//         .start(start),
-//         .a_in(a_in),
-//         .b_in(b_in),
-//         .f_out(f_out),
-//         .busy_o(busy_o)
-//     );
-
-//     clock_gen cg_inst (
-//         .clk(clk)
-//     );
-
-//     integer i, j;
-
-//     initial begin
-//         rst = 1;
-//         start = 0;
-//         a_in = 8'd0;
-//         b_in = 8'd0;
-
-//         #20 rst = 0;
-//         $display("Multiplier test:");
-
-//         for (i = 0; i <= 12; i = i + 1) begin
-//             for (j = 0; j <= 12; j = j + 1) begin
-//                 #10;
-//                 a_in = i;
-//                 b_in = j;
-//                 start = 1;
-//                 #2 start = 0;
-
-//                 wait (!busy_o);
-//                 $display("%d * %d = %d", i, j, f_out);
-//             end
-//         end
-
-//         $display("-=-=-=-=-=-=-=-=-=");
-//         $finish;
-//     end
-// endmodule
