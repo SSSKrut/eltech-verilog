@@ -247,8 +247,10 @@ module compute_y (
     localparam CALC_CUBEROOT = 3'd2;
     localparam CALC_SUM      = 3'd3;
     localparam DONE          = 3'd4;
+    localparam IDLE_MULT_OFF = 3'd5;
+    localparam CALC_SQUARE_CUBICROOT_STOP = 3'd6;
 
-    always @(posedge clk or posedge rst) begin
+    always @(posedge clk) begin
         if (rst) begin
             state <= IDLE;
             ready <= 1'b0;
@@ -264,20 +266,26 @@ module compute_y (
                     if (start) begin
                         // Start calculating a^2
                         mult_start <= 1'b1;
-                        state <= CALC_SQUARE;
+                        state <= IDLE_MULT_OFF;
                     end
                 end
+                IDLE_MULT_OFF: begin
+                    mult_start <= 0;
+                    state <= CALC_SQUARE;
+                end
                 CALC_SQUARE: begin
-                    mult_start <= 1'b0; // Deassert start after one cycle
                     if (!mult_ready) begin
                         a_squared <= mult_result;
                         // Start calculating b^(1/3)
                         cubicroot_start <= 1'b1;
-                        state <= CALC_CUBEROOT;
+                        state <= CALC_SQUARE_CUBICROOT_STOP;
                     end
                 end
+                CALC_SQUARE_CUBICROOT_STOP: begin
+                    cubicroot_start <= 0;
+                    state <= CALC_CUBEROOT;
+                end
                 CALC_CUBEROOT: begin
-                    cubicroot_start <= 1'b0; // Deassert start
                     if (!cubicroot_ready) begin
                         b_cuberoot <= cubicroot_result;
                         state <= CALC_SUM;
@@ -285,13 +293,11 @@ module compute_y (
                 end
                 CALC_SUM: begin
                         y <= b_cuberoot + a_squared;
-                        ready <= 1'b1;
                         state <= DONE;
                 end
                 DONE: begin
-                    if (!start) begin
-                        state <= IDLE;
-                    end
+                    ready <= 1'b1;
+                    state <= IDLE;
                 end
                 default: state <= IDLE;
             endcase
@@ -450,8 +456,8 @@ module compute_y_test;
     integer real_y;
 
     initial begin
-        $dumpfile("test.vcd");
-        $dumpvars(0, compute_y_test);
+        // $dumpfile("test.vcd");
+        // $dumpvars(0, compute_y_test);
         #100000;
         rst <= 1;
         start <= 0;
@@ -459,24 +465,18 @@ module compute_y_test;
         b <= 8'd0;
         #20 rst <= 0;
         $display("Function test:");
+                
 
         for (i = 0; i <= 12; i = i + 1) begin
             for (j = 0; j <= 12; j = j + 1) begin
                 real_y = i * i + j ** 0.33;
                 #10;
                 a <= i;
-                #10;
                 b <= j;
-                #10;
                 start <= 1;
                 #10 start = 0;
-                #100;
 
-                wait (!ready);
-                if (i==0 && j==0) begin
-                    wait (!ready);
-                end
-                #10;
+                wait (ready);
                 $display("y = %d (Expected: %d^2 + %d^(1/3) = %d + %d = %d)", y, a, b, i * i, j ** 0.33, real_y);
                 #10;
             end
