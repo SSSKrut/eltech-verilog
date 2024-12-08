@@ -309,9 +309,10 @@ module clock_gen(
     output reg clk
 );
     initial begin
-        clk <= 1'b1;
-        forever #1 clk <= ~clk;
+        clk <= 1'b0;
+        forever #5 clk <= ~clk; // 100MHz clock: period = 10ns, half-period = 5ns
     end
+
 endmodule
 module mult_test;
     wire clk;
@@ -392,7 +393,7 @@ module cubicroot_test;
     reg [7:0] cube;
 
     initial begin
-        #10000;
+        #150000;
         rst <= 1;
         start <= 0;
         x_in <= 8'd0;
@@ -458,7 +459,7 @@ module compute_y_test;
     initial begin
         // $dumpfile("test.vcd");
         // $dumpvars(0, compute_y_test);
-        #100000;
+        #250000;
         rst <= 1;
         start <= 0;
         a <= 8'd0;
@@ -475,7 +476,7 @@ module compute_y_test;
                 b <= j;
                 start <= 1;
                 #10 start = 0;
-
+                
                 wait (ready);
                 $display("y = %d (Expected: %d^2 + %d^(1/3) = %d + %d = %d)", y, a, b, i * i, j ** 0.33, real_y);
                 #10;
