@@ -1,43 +1,38 @@
-module lfsr_8bit (
-  input clk,
-  input rst,
-  input load1,
-  input [7:0] seed1,
-  input load2,
-  input [7:0] seed2,
-  output reg [7:0] lfsr1_out,
-  output reg [7:0] lfsr2_out
+module lfsr (
+    input clk,
+    input rst,
+    input start,
+    output reg ready,
+    output reg [7:0] lfsr1_out,
+    output reg [7:0] lfsr2_out
 );
+    reg [7:0] lfsr1;
+    reg [7:0] lfsr2;
 
-  reg [7:0] lfsr1;
-  reg [7:0] lfsr2;
+    parameter INIT_LFSR1 = 8'b00000001; // Начальное значение для LFSR1
+    parameter INIT_LFSR2 = 8'b00000001; // Начальное значение для LFSR2
 
-  // LFSR1: y = 1 + x + x^2 + x^4 + x^8
-  always @(posedge clk) begin
-    if (rst) begin
-      lfsr1 <= 8'b00000001; // Initial value (can be changed)
-      lfsr1_out <= 8'b00000001;
-    end else if (load1) begin
-      lfsr1 <= seed1;
-      lfsr1_out <= seed1;
-    end else begin
-      lfsr1 <= {lfsr1[6:0], lfsr1[7] ^ lfsr1[6] ^ lfsr1[5] ^ lfsr1[3]};
-      lfsr1_out <= lfsr1;
+    
+    parameter POLY_LFSR1 = 8'b10111000; // Пример полинома для LFSR1 (x^8 + x^6 + x^5 + x^3 + 1)
+    parameter POLY_LFSR2 = 8'b10011000; // Пример полинома для LFSR2 (x^8 + x^5 + x^4 + x^2 + 1)
+
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            lfsr1 <= INIT_LFSR1; 
+            lfsr2 <= INIT_LFSR2; 
+            lfsr1_out <= lfsr1;
+            lfsr2_out <= lfsr2;
+            ready <= 1;
+        end else if (start) begin
+            ready <= 0;
+            // Вычисление нового значения LFSR1
+            lfsr1 <= {lfsr1[6:0], ^(lfsr1 & POLY_LFSR1)};
+            // Вычисление нового значения LFSR2
+            lfsr2 <= {lfsr2[6:0], ^(lfsr2 & POLY_LFSR2)};
+            lfsr1_out <= lfsr1;
+            lfsr2_out <= lfsr2;
+            ready <= 1;
+        end 
     end
-  end
-
-  // LFSR2: y = 1 + x^2 + x^3 + x^5 + x^8
-  always @(posedge clk) begin
-    if (rst) begin
-      lfsr2 <= 8'b00000001; // Initial value (can be changed)
-      lfsr2_out <= 8'b00000001;
-    end else if (load2) begin
-      lfsr2 <= seed2;
-      lfsr2_out <= seed2;
-    end else begin
-      lfsr2 <= {lfsr2[6:0], lfsr2[7] ^ lfsr2[5] ^ lfsr2[4] ^ lfsr2[2]};
-      lfsr2_out <= lfsr2;
-    end
-  end
 
 endmodule
