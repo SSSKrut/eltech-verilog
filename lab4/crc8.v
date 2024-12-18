@@ -10,21 +10,22 @@ module crc8 (
     reg [7:0] crc; 
     reg [3:0] bit_count; 
     reg busy; 
+    reg init;
 
-    // Полином CRC8: x^8 + x^4 + x^3 + x^2 + 1
     localparam POLY = 8'b10011011;
 
-    always @(posedge clk or posedge rst) begin
-        if (rst) begin
-            crc <= 8'h00; 
-            bit_count <= 4'd0; 
-            ready <= 1'b0; 
-            busy <= 1'b0; 
-        end else if (start && !busy) begin
-            crc <= 8'h00; 
-            bit_count <= 4'd0;
-            busy <= 1'b1; 
-            ready <= 1'b0;
+    always @(posedge clk) begin
+        if (rst ^ !init) begin
+            crc <= 0; 
+            bit_count <= 0; 
+            ready <= 1; 
+            busy <= 0;
+            init <= 1; 
+        end else if (start) begin
+            crc <= 0; 
+            bit_count <= 0;
+            busy <= 1; 
+            ready <= 0;
         end else if (busy) begin
             if (bit_count < 8) begin
                 // Обработка каждого бита входного значения
@@ -32,10 +33,12 @@ module crc8 (
                 bit_count <= bit_count + 1;
             end else begin
                 crc_result <= crc; 
-                ready <= 1'b1; 
-                busy <= 1'b0; 
+                ready <= 1; 
+                busy <= 0; 
             end
-        end
+        end else begin
+            ready <= 1;
+        end 
     end
     
 endmodule

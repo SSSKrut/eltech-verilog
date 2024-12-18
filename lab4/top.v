@@ -61,12 +61,13 @@ module top(
     );
     
     always @(posedge CLK100MHZ) begin
-        DONE <= dut_ready;
+        
         if (TEST_OFF_BTN) begin
             test_mode <= 0;
         end
         
         if (test_mode) begin
+            DONE <= bist_ready;
             if (TEST_ON_BTN && bist_ready) begin 
                 bist_start <= 1;
             end else begin
@@ -85,6 +86,7 @@ module top(
                 b_input <= SW[7:0];
                 dut_start <= START_BTN;
                 LED <= dut_result;
+                DONE <= dut_ready;
             end
         end
     end

@@ -18,18 +18,20 @@ module bist_controller(
     localparam DUT_STOP       = 3'd4;
     localparam CRC_START      = 3'd5;
     localparam CRC_STOP       = 3'd6;
+    reg [7:0] test_counter;
+    reg [8:0] inner_counter;
 
     reg [2:0] state;
     reg lfsr_start;
-    reg lfsr_ready;
-    reg [7:0] test_counter;
-    reg [8:0] inner_counter;
+    wire lfsr_ready;
     wire [7:0] lfsr_1;
     wire [7:0] lfsr_2;
 
     lfsr lfst_inst (
         .clk(clk),
         .rst(rst),
+        .start(lfsr_start),
+        .ready(lfsr_ready),
         .lfsr1_out(lfsr_1),
         .lfsr2_out(lfsr_2)
     );
@@ -80,8 +82,8 @@ module bist_controller(
                 CRC_START: begin
                     if (crc_ready) begin
                         crc_start <= 1;
+                        state <= CRC_STOP;
                     end
-                    state <= CRC_STOP;
                 end
                 CRC_STOP: begin
                     crc_start <= 0;
