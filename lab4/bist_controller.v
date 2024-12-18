@@ -36,7 +36,7 @@ module bist_controller(
         .lfsr2_out(lfsr_2)
     );
 
-    always @(posedge clk or posedge rst) begin
+    always @(posedge clk) begin
         if (rst) begin
             state <= IDLE;
             inner_counter <= 0;
@@ -100,8 +100,9 @@ module bist_controller(
                         end
                     end
                 end
+                default: state <= IDLE;
             endcase
-        end
+        end 
     end
 
 endmodule
