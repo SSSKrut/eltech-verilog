@@ -3,7 +3,8 @@ module top(
     input wire CLK100MHZ,
     input wire RST_BTN, //reset
     input wire START_BTN, //start
-    input wire TEST_ON_BTN, // Test mode on or start new test
+    input wire TEST_ON_BTN, // Test mode 
+    input wire TEST_RUN_BTN, // Run test mode
     input wire TEST_OFF_BTN, // Test mode off
     output reg DONE, //ready
     output reg [15:0] LED
@@ -47,7 +48,7 @@ module top(
     wire bist_ready;
     
     bist_controller bist_inst (
-        .start(bist_start),
+        .start(TEST_RUN_BTN),
         .rst(RST_BTN),
         .clk(CLK100MHZ),
         .dut_ready(dut_ready),
@@ -64,30 +65,23 @@ module top(
         
         if (TEST_OFF_BTN) begin
             test_mode <= 0;
-        end
+        end else if (TEST_ON_BTN) begin 
+            test_mode <= 1;
+        end 
         
         if (test_mode) begin
             DONE <= bist_ready;
-            if (TEST_ON_BTN && bist_ready) begin 
-                bist_start <= 1;
-            end else begin
-                bist_start <= 0;
-                a_input <= a_lfsr;
-                b_input <= b_lfsr;
-                dut_start <= bist_dut_start;
-                LED[15:8] <= test_mode_ctr;
-                LED[7:0] <= crc_result;
-            end
+            a_input <= a_lfsr;
+            b_input <= b_lfsr;
+            dut_start <= bist_dut_start;
+            LED[15:8] <= test_mode_ctr;
+            LED[7:0] <= crc_result;
         end else begin
-            if (TEST_ON_BTN) begin 
-                test_mode <= 1;
-            end else begin
-                a_input <= SW[15:8];
-                b_input <= SW[7:0];
-                dut_start <= START_BTN;
-                LED <= dut_result;
-                DONE <= dut_ready;
-            end
+            a_input <= SW[15:8];
+            b_input <= SW[7:0];
+            dut_start <= START_BTN;
+            LED <= dut_result;
+            DONE <= dut_ready;
         end
     end
     
