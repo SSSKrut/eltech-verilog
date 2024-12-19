@@ -1,0 +1,1 @@
+find lab4 -name '*.v' -type f | xargs iverilog -o sim && vvp sim
